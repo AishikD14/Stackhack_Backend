@@ -1,6 +1,7 @@
 const router = require('express').Router();
 let Register = require('../models/registration.model');
 let Ticket = require('../models/ticket.model');
+let Event = require('../models/events.model');
 var otpGenerator = require('otp-generator');
 
 router.route('/').get((req,res) => {
@@ -38,19 +39,38 @@ router.route('/get_price').post((req,res) => {
 router.route('/purchase').post((req,res) => {
     const eventId = req.body.eventId;
     const email = req.body.email;
+    const username = req.body.username;
+    const mobile = req.body.mobile;
+    const purchaseTime = new Date();
     const ticketType = req.body.ticketType;
     const discountCode = req.body.discountCode;
     const price = req.body.price;
-    var ticketCode = "E";
+    const paymentStatus = true;
+    const paymentMode = "online";
+    const attendedStatus = false;
+    var ticketCode = "E00";
 
     // var same = true;
     const ticketId = otpGenerator.generate(6, { alphabets: false, specialChars: false, upperCase: false });
     Register.findOne({ticketId: ticketId})
-        .then(ticketId => {
-            if(!ticketId){
-
+        .then(ticket => {
+            if(!ticket){
+                ticketCode = ticketCode + eventId.toString() + '-' + ticketType.toString() + '-' + ticketId.toString();
+                const newRegister = new Register({eventId, ticketId, ticketCode, username, email, mobile, purchaseTime, ticketType, price, discountCode, paymentStatus, paymentMode, attendedStatus});
+                newRegister.save()
+                    .then(() => res.status(201).json({
+                        "message": "Success",
+                        "ticketCode" : ticketCode
+                    }))
+                    .catch(err => res.status(400).json('Error:' + err));
             }
         })
+        .catch(err => res.status(400).json('Error:' + err));
+});
+
+router.route('/get_ticket/:code').get((req,res) => {
+    Register.findOne({ticketCode: req.params.code},'username email mobile ticketType paymentStatus price')
+        .then(register => res.json(register))
         .catch(err => res.status(400).json('Error:' + err));
 });
 
